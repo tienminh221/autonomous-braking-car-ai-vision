@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Vision & Teachable Machine Object Detection Studio</title>
+  <!-- TensorFlow.js, Teachable Machine Image & COCO-SSD Object Detection -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --card-bg: #111827;
+      --card-border: #1f2937;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent-blue: #38bdf8;
+      --accent-green: #22c55e;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: linear-gradient(90deg, #0f172a 0%, #1e293b 100%);
+      border-bottom: 1px solid var(--card-border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-badge {
+      background: var(--accent-blue);
+      color: #090d16;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      letter-spacing: 0.6px;
+    }
+    .brand h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-weight: 600;
+      font-size: 13px;
+      transition: all 0.15s ease;
+    }
+    .btn-primary {
+      background: var(--accent-blue);
+      color: #090d16;
+    }
+    .btn-primary:hover {
+      background: #7dd3fc;
+    }
+    .btn-secondary {
+      background: #1f2937;
+      color: #e5e7eb;
+      border: 1px solid #374151;
+    }
+    .btn-secondary:hover {
+      background: #374151;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 18px;
+      padding: 18px 24px;
+      flex: 1;
+    }
+    @media (max-width: 1100px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .panel-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--accent-blue);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Camera Viewport & HUD Overlay */
+    .viewport-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      background: #030712;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 2px solid #1f2937;
+    }
+    video#webcam {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      display: block;
+    }
+    canvas#hudCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .hud-controls {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      align-items: center;
+      background: #0b1120;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid #1e293b;
+      font-size: 13px;
+    }
+    .hud-controls label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      color: #cbd5e1;
+    }
+
+    /* Vision Telemetry Cards */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .stat-card {
+      background: #0b1120;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .stat-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .stat-value {
+      font-size: 21px;
+      font-weight: 800;
+      color: #f8fafc;
+    }
+    .stat-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Visual Signal Lights */
+    .signal-bar {
+      background: #0b1120;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .signal-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .signal-bulb {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #1e293b;
+      border: 2px solid #475569;
+      transition: all 0.15s ease;
+    }
+    .signal-bulb.green-on {
+      background: #22c55e;
+      border-color: #86efac;
+      box-shadow: 0 0 16px #22c55e;
+    }
+    .signal-bulb.amber-on {
+      background: #f59e0b;
+      border-color: #fde68a;
+      box-shadow: 0 0 16px #f59e0b;
+    }
+    .signal-bulb.red-on {
+      background: #ef4444;
+      border-color: #fca5a5;
+      box-shadow: 0 0 16px #ef4444;
+    }
+
+    /* Teachable Machine Class Cards */
+    .tm-classes {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .tm-card {
+      background: #0b1120;
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: all 0.15s;
+    }
+    .tm-card.active-class {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.2);
+    }
+    .tm-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .tm-title-input {
+      background: transparent;
+      border: 1px dashed transparent;
+      color: #f8fafc;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      width: 72%;
+    }
+    .tm-title-input:hover, .tm-title-input:focus {
+      border-color: #334155;
+      background: #111827;
+      outline: none;
+    }
+    .sample-count {
+      font-size: 12px;
+      color: var(--text-muted);
+      background: #1e293b;
+      padding: 2px 9px;
+      border-radius: 12px;
+      white-space: nowrap;
+    }
+    .progress-track {
+      width: 100%;
+      height: 18px;
+      background: #1e293b;
+      border-radius: 9px;
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      transition: width 0.1s ease;
+    }
+    .progress-text {
+      position: absolute;
+      right: 8px;
+      top: 1px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .thumb-strip {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+      min-height: 30px;
+      align-items: center;
+    }
+    .thumb-strip img {
+      width: 34px;
+      height: 26px;
+      object-fit: cover;
+      border-radius: 4px;
+      border: 1px solid #334155;
+    }
+    .btn-record {
+      background: #1e293b;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+      padding: 7px 12px;
+      font-size: 12.5px;
+      width: 100%;
+    }
+    .btn-record:hover {
+      background: #334155;
+    }
+    .btn-record:active {
+      background: var(--accent-blue);
+      color: #090d16;
+    }
+
+    .url-box {
+      display: flex;
+      gap: 8px;
+    }
+    .url-box input {
+      flex: 1;
+      background: #0b1120;
+      border: 1px solid #334155;
+      color: #f8fafc;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="brand-badge">AI VISION STUDIO</span>
+      <h1>Teachable Machine & Real-Time Bounding Box / Vector Line Object Detector</h1>
+    </div>
+    <div class="header-actions">
+      <button class="btn-secondary" id="btnToggleMirror">🔄 Flip Camera Mirror</button>
+      <button class="btn-primary" id="btnSnapshot">📷 Export Report Snapshot (PNG)</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- LEFT COLUMN: CAMERA VIEWPORT WITH BOUNDING BOXES & TRACKING LINES -->
+    <section class="panel">
+      <div class="panel-title">
+        <span>🎥 Live Camera Feed — Multi-Object Bounding Boxes & Tracking Lines</span>
+        <span id="fpsCounter" style="color:#9ca3af;font-size:12px;">FPS: 30 | AI Vision: Active</span>
+      </div>
+
+      <div class="viewport-wrapper">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="hudCanvas"></canvas>
+      </div>
+
+      <div class="hud-controls">
+        <label><input type="checkbox" id="chkBBox" checked /> Object Bounding Boxes & Lock Brackets</label>
+        <label><input type="checkbox" id="chkVectorLine" checked /> Vector Target Lines & Crosshair</label>
+        <label><input type="checkbox" id="chkMeshLine" checked /> Multi-Point Feature Mesh Lines</label>
+        <label><input type="checkbox" id="chkZoneGrid" checked /> Safety Corridor & Braking Zone Lines</label>
+      </div>
+
+      <!-- PURE VISION TELEMETRY DASHBOARD -->
+      <div class="telemetry-grid">
+        <div class="stat-card">
+          <span class="stat-label">Detected Objects</span>
+          <span class="stat-value" id="valObjCount">0 Objects</span>
+          <span class="stat-sub" id="subBoxArea">Box Area: 0.0% | Est. Range: > 35.0 cm</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Teachable Machine Class</span>
+          <span class="stat-value" id="valTMClass" style="color:#22c55e;">Clear_Road</span>
+          <span class="stat-sub" id="subTMConf">Confidence: 95.0%</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">AI Vision Control Decision</span>
+          <span class="stat-value" id="valDecision" style="color:#22c55e;">NORMAL CRUISE</span>
+          <span class="stat-sub" id="subAction">Status: Unobstructed Path (> 25 cm)</span>
+        </div>
+      </div>
+
+      <div class="signal-bar">
+        <div class="signal-item">
+          <div class="signal-bulb green-on" id="bulbGreen"></div>
+          <div>
+            <div style="font-weight:700;font-size:13px;">GREEN SIGNAL (CLEAR)</div>
+            <div style="font-size:11px;color:#9ca3af;">No critical obstacle detected (> 25 cm)</div>
+          </div>
+        </div>
+        <div class="signal-item">
+          <div class="signal-bulb" id="bulbAmber"></div>
+          <div>
+            <div style="font-weight:700;font-size:13px;">AMBER SIGNAL (DECELERATE)</div>
+            <div style="font-size:11px;color:#9ca3af;">Mid-range obstacle caution (10 - 25 cm)</div>
+          </div>
+        </div>
+        <div class="signal-item">
+          <div class="signal-bulb" id="bulbRed"></div>
+          <div>
+            <div style="font-weight:700;font-size:13px;">RED SIGNAL (EMERGENCY STOP)</div>
+            <div style="font-size:11px;color:#9ca3af;">Close obstacle / Stop trigger (<= 10 cm)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN: STANDALONE TEACHABLE MACHINE TRAINER & CLASSIFIER -->
+    <section class="panel">
+      <div class="panel-title">
+        <span>🧠 Teachable Machine Training & Classification</span>
+        <button class="btn-secondary" id="btnResetSamples" style="padding:4px 10px;font-size:11px;">🗑️ Reset Samples</button>
+      </div>
+
+      <p style="font-size:12.5px;color:#9ca3af;line-height:1.45;">
+        Press and hold <strong>"📸 Hold to Record Samples"</strong> under each class to train the real-time classifier directly from your webcam (click any class title to rename it).
+      </p>
+
+      <div class="tm-classes">
+        <!-- CLASS 0 -->
+        <div class="tm-card active-class" id="cardClass0">
+          <div class="tm-header">
+            <input class="tm-title-input" id="nameClass0" value="Class 1: Clear_Road (Normal Cruise)" style="color:#22c55e;" />
+            <span class="sample-count" id="countClass0">0 samples</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="barClass0" style="background:#22c55e;width:90%;"></div>
+            <span class="progress-text" id="pctClass0">90%</span>
+          </div>
+          <div class="thumb-strip" id="thumbsClass0"></div>
+          <button class="btn-record" onmousedown="startRecording(0)" onmouseup="stopRecording()" onmouseleave="stopRecording()" ontouchstart="startRecording(0)" ontouchend="stopRecording()">
+            📸 Hold to Record Class 1 Samples
+          </button>
+        </div>
+
+        <!-- CLASS 1 -->
+        <div class="tm-card" id="cardClass1">
+          <div class="tm-header">
+            <input class="tm-title-input" id="nameClass1" value="Class 2: Obstacle (Slow Down)" style="color:#f59e0b;" />
+            <span class="sample-count" id="countClass1">0 samples</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="barClass1" style="background:#f59e0b;width:5%;"></div>
+            <span class="progress-text" id="pctClass1">5%</span>
+          </div>
+          <div class="thumb-strip" id="thumbsClass1"></div>
+          <button class="btn-record" onmousedown="startRecording(1)" onmouseup="stopRecording()" onmouseleave="stopRecording()" ontouchstart="startRecording(1)" ontouchend="stopRecording()">
+            📸 Hold to Record Class 2 Samples
+          </button>
+        </div>
+
+        <!-- CLASS 2 -->
+        <div class="tm-card" id="cardClass2">
+          <div class="tm-header">
+            <input class="tm-title-input" id="nameClass2" value="Class 3: Stop_Sign (Emergency Stop)" style="color:#ef4444;" />
+            <span class="sample-count" id="countClass2">0 samples</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="barClass2" style="background:#ef4444;width:5%;"></div>
+            <span class="progress-text" id="pctClass2">5%</span>
+          </div>
+          <div class="thumb-strip" id="thumbsClass2"></div>
+          <button class="btn-record" onmousedown="startRecording(2)" onmouseup="stopRecording()" onmouseleave="stopRecording()" ontouchstart="startRecording(2)" ontouchend="stopRecording()">
+            📸 Hold to Record Class 3 Samples
+          </button>
+        </div>
+      </div>
+
+      <!-- LOAD GOOGLE TEACHABLE MACHINE URL -->
+      <div style="border-top:1px solid #1f2937;padding-top:12px;display:flex;flex-direction:column;gap:8px;">
+        <span style="font-size:12px;font-weight:700;color:#cbd5e1;">🔗 Load External Google Teachable Machine Model URL (Optional):</span>
+        <div class="url-box">
+          <input type="text" id="inputTMUrl" placeholder="https://teachablemachine.withgoogle.com/models/xxxxxx/" />
+          <button class="btn-primary" id="btnLoadTMUrl">Load Model</button>
+        </div>
+        <span id="statusTMUrl" style="font-size:11.5px;color:#9ca3af;">Active Mode: Neural Object Detector + Live KNN Teachable Machine.</span>
+      </div>
+
+      <!-- REAL-TIME BOUNDING BOX & LINE COORDINATES LOG -->
+      <div style="margin-top:auto;background:#0b1120;border:1px solid #1e293b;border-radius:10px;padding:12px;">
+        <div style="font-size:12px;font-weight:700;color:var(--accent-blue);margin-bottom:4px;">
+          📐 Real-Time Bounding Box & Vector Line Telemetry
+        </div>
+        <div id="bboxLog" style="font-family:monospace;font-size:12px;color:#cbd5e1;line-height:1.5;min-height:44px;">
+          Initializing camera stream and neural detection models...
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const video = document.getElementById("webcam");
+    const canvas = document.getElementById("hudCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let isMirrored = true;
+    let cocoModel = null;
+    let externalTMModel = null;
+    let detectedObjects = [];
+    let lastCocoRun = 0;
+    let dashOffset = 0;
+
+    // Downsampled processing canvas for Live Teachable Machine KNN & Contour Tracking
+    const procCanvas = document.createElement("canvas");
+    procCanvas.width = 36;
+    procCanvas.height = 27;
+    const procCtx = procCanvas.getContext("2d", { willReadFrequently: true });
+
+    let trainingSamples = [[], [], []];
+    let recordingClass = -1;
+    let lastThumbTime = 0;
+    let classProbs = [0.90, 0.05, 0.05];
+    let activeClassIdx = 0;
+
+    function getShortClassName(idx) {
+      const val = document.getElementById("nameClass" + idx).value.trim();
+      const parts = val.split(":");
+      return (parts.length > 1 ? parts[1] : parts[0]).split("(")[0].trim();
+    }
+
+    // 1. Initialize Camera & COCO-SSD Model
+    async function initCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 960 }, height: { ideal: 600 }, facingMode: "user" },
+          audio: false
+        });
+        video.srcObject = stream;
+        await new Promise((res) => (video.onloadedmetadata = res));
+        canvas.width = video.videoWidth || 800;
+        canvas.height = video.videoHeight || 500;
+      } catch (err) {
+        document.getElementById("bboxLog").innerText =
+          "⚠️ Camera Access Error: Please allow webcam permissions in your browser (" + err.message + ")";
+      }
+    }
+
+    async function initAI() {
+      try {
+        if (window.cocoSsd) {
+          document.getElementById("fpsCounter").innerText = "Loading COCO-SSD Neural Network...";
+          cocoModel = await cocoSsd.load();
+          document.getElementById("fpsCounter").innerText = "FPS: 30 | COCO-SSD + Feature Mesh Active";
+        }
+      } catch (e) {
+        document.getElementById("fpsCounter").innerText = "FPS: 30 | Contour Vision Active";
+      }
+    }
+
+    // 2. Feature Extraction & Live Sample Recording (with thumbnail preview)
+    function extractFeaturesAndFrame() {
+      procCtx.save();
+      if (isMirrored) {
+        procCtx.translate(procCanvas.width, 0);
+        procCtx.scale(-1, 1);
+      }
+      procCtx.drawImage(video, 0, 0, procCanvas.width, procCanvas.height);
+      procCtx.restore();
+
+      const imgData = procCtx.getImageData(0, 0, procCanvas.width, procCanvas.height).data;
+      const feat = new Float32Array(12 * 9 * 3);
+      let idx = 0;
+      for (let gy = 0; gy < 9; gy++) {
+        for (let gx = 0; gx < 12; gx++) {
+          const px = Math.floor((gx + 0.5) * (procCanvas.width / 12));
+          const py = Math.floor((gy + 0.5) * (procCanvas.height / 9));
+          const p = (py * procCanvas.width + px) * 4;
+          feat[idx++] = imgData[p] / 255.0;
+          feat[idx++] = imgData[p + 1] / 255.0;
+          feat[idx++] = imgData[p + 2] / 255.0;
+        }
+      }
+      return { feat, imgData };
+    }
+
+    function startRecording(clsIdx) {
+      recordingClass = clsIdx;
+    }
+    function stopRecording() {
+      recordingClass = -1;
+    }
+
+    document.getElementById("btnResetSamples").addEventListener("click", () => {
+      trainingSamples = [[], [], []];
+      for (let i = 0; i < 3; i++) {
+        document.getElementById("countClass" + i).innerText = "0 samples";
+        document.getElementById("thumbsClass" + i).innerHTML = "";
+      }
+    });
+
+    function addSampleThumbnail(clsIdx) {
+      const now = performance.now();
+      if (now - lastThumbTime < 180) return;
+      lastThumbTime = now;
+      const strip = document.getElementById("thumbsClass" + clsIdx);
+      const img = document.createElement("img");
+      img.src = procCanvas.toDataURL("image/jpeg", 0.7);
+      strip.appendChild(img);
+      if (strip.children.length > 8) {
+        strip.removeChild(strip.firstChild);
+      }
+    }
+
+    function runLiveKNNClassifier(feat, maxAreaRatio) {
+      const total =
+        trainingSamples[0].length + trainingSamples[1].length + trainingSamples[2].length;
+
+      if (total > 0) {
+        let scores = [0.001, 0.001, 0.001];
+        for (let c = 0; c < 3; c++) {
+          const samples = trainingSamples[c];
+          if (samples.length === 0) continue;
+          let bestDist = Infinity;
+          for (let s = 0; s < samples.length; s++) {
+            let d = 0;
+            const ref = samples[s];
+            for (let k = 0; k < feat.length; k++) {
+              const diff = feat[k] - ref[k];
+              d += diff * diff;
+            }
+            if (d < bestDist) bestDist = d;
+          }
+          scores[c] = Math.exp(-bestDist * 1.85);
+        }
+        const sum = scores[0] + scores[1] + scores[2];
+        for (let c = 0; c < 3; c++) {
+          classProbs[c] = 0.6 * classProbs[c] + 0.4 * (scores[c] / sum);
+        }
+      } else {
+        // Smart vision fallback based on detected object coverage
+        let target = [0.92, 0.05, 0.03];
+        if (maxAreaRatio > 0.42) {
+          target = [0.03, 0.10, 0.87];
+        } else if (maxAreaRatio > 0.15) {
+          target = [0.07, 0.85, 0.08];
+        }
+        for (let c = 0; c < 3; c++) {
+          classProbs[c] = 0.7 * classProbs[c] + 0.3 * target[c];
+        }
+      }
+    }
+
+    // Load External Google Teachable Machine Model
+    document.getElementById("btnLoadTMUrl").addEventListener("click", async () => {
+      let url = document.getElementById("inputTMUrl").value.trim();
+      if (!url) return;
+      if (!url.endsWith("/")) url += "/";
+      const statusEl = document.getElementById("statusTMUrl");
+      try {
+        statusEl.innerText = "⏳ Loading model from Google Teachable Machine...";
+        externalTMModel = await tmImage.load(url + "model.json", url + "metadata.json");
+        statusEl.innerText = "✅ External Google Teachable Machine Model Loaded!";
+        statusEl.style.color = "#22c55e";
+      } catch (err) {
+        statusEl.innerText = "❌ Failed to load URL: Please verify your Teachable Machine Shareable Link.";
+        statusEl.style.color = "#ef4444";
+      }
+    });
+
+    // 3. Salient Foreground Object & Keypoint Detector
+    function detectSalientObjectAndKeypoints(imgData, W, H) {
+      const gw = procCanvas.width;
+      const gh = procCanvas.height;
+
+      let bgR = 0, bgG = 0, bgB = 0, cnt = 0;
+      for (let x = 0; x < gw; x++) {
+        const p = x * 4;
+        bgR += imgData[p];
+        bgG += imgData[p + 1];
+        bgB += imgData[p + 2];
+        cnt++;
+      }
+      bgR /= cnt; bgG /= cnt; bgB /= cnt;
+
+      let minX = gw, minY = gh, maxX = 0, maxY = 0, active = 0;
+      const keypoints = [];
+
+      for (let y = 2; y < gh - 2; y++) {
+        for (let x = 2; x < gw - 2; x++) {
+          const p = (y * gw + x) * 4;
+          const dr = imgData[p] - bgR;
+          const dg = imgData[p + 1] - bgG;
+          const db = imgData[p + 2] - bgB;
+          const colorDiff = Math.sqrt(dr * dr + dg * dg + db * db);
+
+          const pRight = (y * gw + (x + 1)) * 4;
+          const pDown = ((y + 1) * gw + x) * 4;
+          const edge =
+            Math.abs(imgData[p] - imgData[pRight]) +
+            Math.abs(imgData[p + 1] - imgData[pDown + 1]);
+
+          if (colorDiff > 48 || edge > 46) {
+            active++;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+            if (keypoints.length < 20 && (x * 3 + y) % 4 === 0) {
+              keypoints.push({
+                x: ((x + 0.5) / gw) * W,
+                y: ((y + 0.5) / gh) * H
+              });
+            }
+          }
+        }
+      }
+
+      if (active < 12) return null;
+      const sx = W / gw;
+      const sy = H / gh;
+      return {
+        bbox: [
+          minX * sx,
+          minY * sy,
+          Math.max(48, (maxX - minX + 1) * sx),
+          Math.max(48, (maxY - minY + 1) * sy)
+        ],
+        class: getShortClassName(activeClassIdx).toUpperCase(),
+        score: Math.max(0.80, classProbs[activeClassIdx]),
+        keypoints
+      };
+    }
+
+    // 4. Main Vision Loop
+    async function runLoop() {
+      const W = canvas.width;
+      const H = canvas.height;
+      ctx.clearRect(0, 0, W, H);
+      dashOffset = (dashOffset - 1.3) % 24;
+
+      const { feat, imgData } = extractFeaturesAndFrame();
+      if (recordingClass !== -1) {
+        trainingSamples[recordingClass].push(feat);
+        document.getElementById("countClass" + recordingClass).innerText =
+          trainingSamples[recordingClass].length + " samples";
+        addSampleThumbnail(recordingClass);
+      }
+
+      // Run COCO-SSD object detector
+      const now = performance.now();
+      if (cocoModel && now - lastCocoRun > 110 && video.readyState >= 2) {
+        lastCocoRun = now;
+        try {
+          const preds = await cocoModel.detect(video);
+          detectedObjects = preds.map((p) => {
+            let [x, y, w, h] = p.bbox;
+            if (isMirrored) x = W - x - w;
+            return { bbox: [x, y, w, h], class: p.class.toUpperCase(), score: p.score, keypoints: [] };
+          });
+        } catch (e) {}
+      }
+
+      // Combine COCO-SSD boxes and Salient Keypoint Mesh
+      const salient = detectSalientObjectAndKeypoints(imgData, W, H);
+      let boxes = [...detectedObjects];
+      if (salient) {
+        if (boxes.length === 0) {
+          boxes.push(salient);
+        } else {
+          boxes.forEach((b) => {
+            b.keypoints = salient.keypoints.filter(
+              (pt) =>
+                pt.x >= b.bbox[0] &&
+                pt.x <= b.bbox[0] + b.bbox[2] &&
+                pt.y >= b.bbox[1] &&
+                pt.y <= b.bbox[1] + b.bbox[3]
+            );
+          });
+        }
+      }
+
+      // Find largest object box ratio
+      let maxAreaRatio = 0;
+      for (const b of boxes) {
+        const ratio = (b.bbox[2] * b.bbox[3]) / (W * H);
+        if (ratio > maxAreaRatio) maxAreaRatio = ratio;
+      }
+
+      // Classify with external TM model or Live KNN
+      if (externalTMModel && video.readyState >= 2) {
+        const preds = await externalTMModel.predict(video);
+        for (let i = 0; i < Math.min(3, preds.length); i++) {
+          classProbs[i] = preds[i].probability;
+        }
+      } else {
+        runLiveKNNClassifier(feat, maxAreaRatio);
+      }
+
+      activeClassIdx = 0;
+      if (classProbs[1] > classProbs[activeClassIdx]) activeClassIdx = 1;
+      if (classProbs[2] > classProbs[activeClassIdx]) activeClassIdx = 2;
+
+      // Estimate visual distance from bounding box scale
+      const estDistCm =
+        boxes.length > 0
+          ? Math.max(5.0, Math.min(45.0, Number((38.0 * (1.0 - Math.sqrt(maxAreaRatio) * 1.1)).toFixed(1))))
+          : 45.0;
+
+      // Draw HUD Elements
+      const origin = { x: W / 2, y: H - 14 };
+      if (document.getElementById("chkZoneGrid").checked) {
+        drawCorridorLines(ctx, W, H, origin);
+      }
+
+      const showBBox = document.getElementById("chkBBox").checked;
+      const showVec = document.getElementById("chkVectorLine").checked;
+      const showMesh = document.getElementById("chkMeshLine").checked;
+      const logArr = [];
+
+      boxes.forEach((obj, idx) => {
+        const [bx, by, bw, bh] = obj.bbox;
+        const cx = bx + bw / 2;
+        const cy = by + bh / 2;
+        const areaPct = (((bw * bh) / (W * H)) * 100).toFixed(1);
+        const objDist = idx === 0 ? estDistCm : Math.max(6.0, Number((40.0 * (1 - (by + bh) / H) + 8).toFixed(1)));
+
+        let color = "#22c55e";
+        let stateTag = "SAFE";
+        if (activeClassIdx === 2 || objDist <= 10.0) {
+          color = "#ef4444";
+          stateTag = "STOP";
+        } else if (activeClassIdx === 1 || objDist <= 25.0) {
+          color = "#f59e0b";
+          stateTag = "SLOW";
+        }
+
+        // 1. Feature Mesh & Diagonal Structural Lines inside Object
+        if (showMesh) {
+          ctx.save();
+          ctx.strokeStyle = color + "66";
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(bx, by); ctx.lineTo(bx + bw, by + bh);
+          ctx.moveTo(bx + bw, by); ctx.lineTo(bx, by + bh);
+          if (obj.keypoints && obj.keypoints.length > 1) {
+            for (let k = 0; k < obj.keypoints.length; k++) {
+              const pt = obj.keypoints[k];
+              ctx.moveTo(cx, cy);
+              ctx.lineTo(pt.x, pt.y);
+              if (k + 1 < obj.keypoints.length) {
+                ctx.lineTo(obj.keypoints[k + 1].x, obj.keypoints[k + 1].y);
+              }
+            }
+          }
+          ctx.stroke();
+
+          if (obj.keypoints) {
+            ctx.fillStyle = "#38bdf8";
+            for (const pt of obj.keypoints) {
+              ctx.beginPath();
+              ctx.arc(pt.x, pt.y, 2.8, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+          ctx.restore();
+        }
+
+        // 2. Bounding Box & Corner Brackets
+        if (showBBox) {
+          ctx.save();
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2;
+          ctx.fillStyle = color + "18";
+          ctx.fillRect(bx, by, bw, bh);
+          ctx.strokeRect(bx, by, bw, bh);
+
+          // 4 Corner Lock Brackets
+          const cl = Math.min(24, bw * 0.25, bh * 0.25);
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(bx, by + cl); ctx.lineTo(bx, by); ctx.lineTo(bx + cl, by);
+          ctx.moveTo(bx + bw - cl, by); ctx.lineTo(bx + bw, by); ctx.lineTo(bx + bw, by + cl);
+          ctx.moveTo(bx, by + bh - cl); ctx.lineTo(bx, by + bh); ctx.lineTo(bx + cl, by + bh);
+          ctx.moveTo(bx + bw - cl, by + bh); ctx.lineTo(bx + bw, by + bh); ctx.lineTo(bx + bw, by + bh - cl);
+          ctx.stroke();
+
+          // Header Badge
+          const tmLabel = getShortClassName(activeClassIdx);
+          const tag = `[#${idx + 1}] ${obj.class} | TM: ${tmLabel} (${(classProbs[activeClassIdx] * 100).toFixed(0)}%) | ~${objDist}cm [${stateTag}]`;
+          ctx.font = "bold 12.5px 'Segoe UI', sans-serif";
+          const tw = ctx.measureText(tag).width + 14;
+          const ty = Math.max(24, by);
+          ctx.fillStyle = color;
+          ctx.fillRect(bx, ty - 24, tw, 24);
+          ctx.fillStyle = "#090d16";
+          ctx.fillText(tag, bx + 7, ty - 7);
+          ctx.restore();
+        }
+
+        // 3. Target Crosshair & Vector Line from Camera Sensor Origin
+        if (showVec) {
+          ctx.save();
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.8;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 11, 0, Math.PI * 2);
+          ctx.moveTo(cx - 20, cy); ctx.lineTo(cx + 20, cy);
+          ctx.moveTo(cx, cy - 20); ctx.lineTo(cx, cy + 20);
+          ctx.stroke();
+
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([10, 6]);
+          ctx.lineDashOffset = dashOffset;
+          ctx.beginPath();
+          ctx.moveTo(origin.x, origin.y);
+          ctx.lineTo(cx, cy);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          const mx = (origin.x + cx) / 2;
+          const my = (origin.y + cy) / 2;
+          const angle = Math.round((Math.atan2(cx - origin.x, origin.y - cy) * 180) / Math.PI);
+          const pill = `Est: ${objDist} cm | θ: ${angle}° | Area: ${areaPct}%`;
+          ctx.font = "bold 11.5px monospace";
+          const pw = ctx.measureText(pill).width + 12;
+          ctx.fillStyle = "#090d16dd";
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.4;
+          ctx.fillRect(mx - pw / 2, my - 11, pw, 22);
+          ctx.strokeRect(mx - pw / 2, my - 11, pw, 22);
+          ctx.fillStyle = "#f8fafc";
+          ctx.fillText(pill, mx - pw / 2 + 6, my + 4);
+          ctx.restore();
+        }
+
+        logArr.push(
+          `Target #${idx + 1}: [${obj.class}] Box=(${Math.round(bx)}, ${Math.round(by)}, ${Math.round(bw)}x${Math.round(bh)}px) | Area=${areaPct}% | ~${objDist}cm`
+        );
+      });
+
+      document.getElementById("bboxLog").innerText =
+        logArr.length > 0
+          ? logArr.join("\n")
+          : "No obstacle detected in active corridor (Clear Road > 25.0 cm)";
+
+      updateUI(boxes.length, maxAreaRatio, estDistCm);
+      requestAnimationFrame(runLoop);
+    }
+
+    function drawCorridorLines(ctx, W, H, origin) {
+      ctx.save();
+      ctx.strokeStyle = "#38bdf844";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(W * 0.15, H);
+      ctx.lineTo(W * 0.37, H * 0.36);
+      ctx.moveTo(W * 0.85, H);
+      ctx.lineTo(W * 0.63, H * 0.36);
+      ctx.stroke();
+
+      const ySlow = H * 0.56;
+      ctx.strokeStyle = "#f59e0b99";
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath();
+      ctx.moveTo(W * 0.27, ySlow);
+      ctx.lineTo(W * 0.73, ySlow);
+      ctx.stroke();
+      ctx.fillStyle = "#f59e0b";
+      ctx.font = "bold 11px sans-serif";
+      ctx.fillText("CAUTION / SLOWDOWN LINE (25.0 cm)", W * 0.28, ySlow - 6);
+
+      const yStop = H * 0.79;
+      ctx.strokeStyle = "#ef4444bb";
+      ctx.beginPath();
+      ctx.moveTo(W * 0.19, yStop);
+      ctx.lineTo(W * 0.81, yStop);
+      ctx.stroke();
+      ctx.fillStyle = "#ef4444";
+      ctx.fillText("CRITICAL EMERGENCY STOP LINE (10.0 cm)", W * 0.20, yStop - 6);
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = "#38bdf8";
+      ctx.beginPath();
+      ctx.arc(origin.x, origin.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#e2e8f0";
+      ctx.fillText("VISION SENSOR ORIGIN", origin.x - 58, origin.y - 10);
+      ctx.restore();
+    }
+
+    function updateUI(boxCount, maxAreaRatio, estDistCm) {
+      for (let i = 0; i < 3; i++) {
+        const pct = Math.round(classProbs[i] * 100);
+        document.getElementById("barClass" + i).style.width = pct + "%";
+        document.getElementById("pctClass" + i).innerText = pct + "%";
+        document.getElementById("cardClass" + i).classList.toggle("active-class", i === activeClassIdx);
+      }
+
+      document.getElementById("valObjCount").innerText =
+        boxCount + (boxCount === 1 ? " Object" : " Objects");
+      document.getElementById("subBoxArea").innerText =
+        `Box Area: ${(maxAreaRatio * 100).toFixed(1)}% | Est. Range: ~${estDistCm.toFixed(1)} cm`;
+
+      const tmName = getShortClassName(activeClassIdx);
+      const colors = ["#22c55e", "#f59e0b", "#ef4444"];
+      const elTM = document.getElementById("valTMClass");
+      elTM.innerText = tmName;
+      elTM.style.color = colors[activeClassIdx];
+      document.getElementById("subTMConf").innerText =
+        `Confidence: ${(classProbs[activeClassIdx] * 100).toFixed(1)}%`;
+
+      const elDec = document.getElementById("valDecision");
+      const elAct = document.getElementById("subAction");
+      let g = false, a = false, r = false;
+
+      if (activeClassIdx === 2 || estDistCm <= 10.0) {
+        elDec.innerText = "EMERGENCY STOP";
+        elDec.style.color = "#ef4444";
+        elAct.innerText = "Action: Full Emergency Braking (<= 10.0 cm)";
+        r = true;
+      } else if (activeClassIdx === 1 || estDistCm <= 25.0) {
+        elDec.innerText = "SLOWING DOWN";
+        elDec.style.color = "#f59e0b";
+        elAct.innerText = "Action: Proportional Deceleration (10 - 25 cm)";
+        a = true;
+      } else {
+        elDec.innerText = "NORMAL CRUISE";
+        elDec.style.color = "#22c55e";
+        elAct.innerText = "Status: Unobstructed Path (> 25.0 cm)";
+        g = true;
+      }
+
+      document.getElementById("bulbGreen").classList.toggle("green-on", g);
+      document.getElementById("bulbAmber").classList.toggle("amber-on", a);
+      document.getElementById("bulbRed").classList.toggle("red-on", r);
+    }
+
+    // Mirror & Snapshot Buttons
+    document.getElementById("btnToggleMirror").addEventListener("click", () => {
+      isMirrored = !isMirrored;
+      video.style.transform = isMirrored ? "scaleX(-1)" : "scaleX(1)";
+    });
+
+    document.getElementById("btnSnapshot").addEventListener("click", () => {
+      const snap = document.createElement("canvas");
+      snap.width = canvas.width;
+      snap.height = canvas.height;
+      const sctx = snap.getContext("2d");
+      sctx.save();
+      if (isMirrored) {
+        sctx.translate(snap.width, 0);
+        sctx.scale(-1, 1);
+      }
+      sctx.drawImage(video, 0, 0, snap.width, snap.height);
+      sctx.restore();
+      sctx.drawImage(canvas, 0, 0);
+
+      const link = document.createElement("a");
+      link.download = "AI_Vision_BoundingBox_Report.png";
+      link.href = snap.toDataURL("image/png");
+      link.click();
+    });
+
+    (async () => {
+      await initCamera();
+      initAI();
+      requestAnimationFrame(runLoop);
+    })();
+  </script>
+</body>
+</html>

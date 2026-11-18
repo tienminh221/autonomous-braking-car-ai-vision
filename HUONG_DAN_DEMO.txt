@@ -1,0 +1,21 @@
+========================================================================
+PHẦN MỀM ĐỘC LẬP: AI VISION & TEACHABLE MACHINE OBJECT DETECTOR
+(Chạy độc lập 100% trên Laptop/PC bằng Webcam - Không phụ thuộc Arduino)
+========================================================================
+
+1. CÁCH KHỞI ĐỘNG PHẦN MỀM (1 CLICK):
+   - Nháy đúp chuột vào file "Start_AI_Demo.bat" (hoặc mở file "index.html" bằng Chrome / Edge).
+   - Chọn "Allow / Cho phép" khi trình duyệt hỏi quyền truy cập Webcam của Laptop.
+
+2. TÍNH NĂNG NỔI BẬT TRÊN MÀN HÌNH:
+   - Khung viền Bounding Box + 4 Góc khóa mục tiêu (Corner Brackets):
+     Tự động phát hiện và đóng khung mọi vật thể đưa vào trước Webcam (bàn tay, hộp giấy, điện thoại, sách, chai nước, người...), tự đổi màu Xanh (An toàn) -> Cam (Giảm tốc) -> Đỏ (Dừng khẩn cấp).
+   - Đường Line Vector & Lưới đa điểm (Target Lines & Feature Mesh):
+     + Vẽ đường chéo khung, các chấm điểm đặc trưng (Keypoints) và mạng lưới đường nối bên trong vật thể.
+     + Vẽ tia laser nét đứt nối từ Tâm Camera (Vision Sensor Origin) tới Tâm vật thể kèm độ phủ diện tích (Area %), góc lệch (θ), và cự ly ước tính (~cm).
+   - Huấn luyện trực tiếp như Teachable Machine (có ảnh Thumbnail xem trước):
+     + Bấm và giữ nút "📸 Giữ để thu mẫu (Hold to Record)" ở từng Class (Class 1, Class 2, Class 3) để dạy AI nhận diện mẫu ảnh trực tiếp.
+     + Có thể bấm trực tiếp vào tên của từng Class để đổi tên tùy ý.
+     + Hoặc dán link Model từ web https://teachablemachine.withgoogle.com/ vào ô bên dưới để nạp model đã train trên web.
+   - Nút "📷 Chụp Ảnh Báo Cáo (PNG)" ở góc trên bên phải:
+     + Bấm 1 phát là tải ngay bức ảnh chụp màn hình Camera kèm đầy đủ Khung Bounding Box & Đường Line sắc nét để chèn thẳng vào báo cáo Word/IEEE!
